@@ -2,77 +2,144 @@ const formidable = require('formidable');
 
 class RequestData {
     #url;
-    #data;
+    incomingData;
 
     constructor() {
         this.#url = [];
-        this.#data = {};
+        this.incomingData = class {
+            #files;
+            #fields;
+
+            constructor(fields, files) {
+                this.#files = files;
+                this.#fields = fields;
+            }
+
+            getField(key) {
+                return this.#fields[key];
+            }
+
+            checkFields(keys) {
+                for (let key in keys) {
+                    if (!this.getField(key)) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            getFile(filename) {
+                return this.#files[filename];
+            }
+
+            getFiles() {
+                let files = [];
+                for (let file in this.#files) {
+                    files.push({ 'filename': file, 'filepath': this.#files[file] });
+                }
+                return files;
+            }
+
+            getFileNames() {
+                let files = [];
+                for (let file in this.#files) {
+                    files.push(file);
+                }
+                return files;
+            }
+
+            getFilePaths() {
+                let files = [];
+                for (let file in this.#files) {
+                    files.push(this.#files[file]);
+                }
+                return files;
+            }
+        };
     }
 
     extractData(req, callback) {
         try {
             let url = req.url;
+            url = url.split('?', 2)[0];
             url = url.split('/');
             (url[0] == '') ? url.shift(1) : None;
-            let temp = url[url.length - 1].split('?', 2);
-            if (temp.length == 2 && temp[1] != '') {
-                url[url.length - 1] = temp[0];
-                try {
-                    this.#data = JSON.parse(temp[1]);
-                } catch (e) {
-                    temp = temp[1].split('&');
-                    for (let i = 0; i < temp.length; i++) {
-                        let _temp = temp[i].split('=');
-                        this.#data[_temp[0]] = _temp[1];
+            this.#url = url;
+            let $fields = {}, $files = {};
+            new formidable.IncomingForm().parse(req, (err, fields, files) => {
+                if (req.headers['content-type'].includes('multipart/form-data')) {
+                    for (let file in files) {
+                        $files[files[file][0].originalFilename] = files[file][0].filepath;
                     }
+                    for (let field in fields) {
+                        $fields[field] = fields[field][0];
+                    }
+                    this.incomingData = new this.incomingData($fields, $files);
+                    callback(true);
+                }
+            });
+            let $req = req;
+            if ($req.method === 'GET') {
+                $req = $req.url.split('?', 2);
+                if ($req.length > 1) {
+                    let data = JSON.parse($req[1]);
+                    for (let key in data) {
+                        $fields[key] = data[key];
+                    }
+                    this.incomingData = new this.incomingData($fields, $files);
+                }
+                callback(true);
+            }
+            else if ($req.method === 'POST') {
+                if (!$req.headers['content-type'].includes('multipart/form-data')) {
+                    let data = '';
+                    $req.on('data', chunk => {
+                        data += chunk.toString();
+                    });
+                    $req.on('end', () => {
+                        data = JSON.parse(data);
+                        for (let key in data) {
+                            $fields[key] = data[key];
+                        }
+                        this.incomingData = new this.incomingData($fields, $files);
+                        callback(true);
+                    });
                 }
             }
-            this.#url = url;
-            if (req.method === 'POST') {
-                let data = '';
-                req.on('data', chunk => {
-                    data += chunk.toString();
-                });
-                req.on('end', () => {
-                    try {
-                        this.#data = JSON.parse(data);
-                    }
-                    catch (e) {
-                        data = data.split('&');
-                        for (let i = 0; i < data.length; i++) {
-                            let _data = data[i].split('=');
-                            this.#data[_data[0]] = _data[1];
-                        }
-                    }
-                    callback();
-                });
-            }
-            else {
-                callback();
-            }
         } catch (e) {
-            console.log(e);
+            callback(false);
         }
     }
 
-    shiftUrl() {
-        return this.#url.shift();
+    peekUrl(asString = false, completeUrl = false, n = 1) {
+        let url = [];
+        if (completeUrl || n > this.#url.length) {
+            n = this.#url.length;
+        }
+        for (let i = 0; i < n; i++) {
+            url.push(this.#url[i]);
+        }
+        if (asString) {
+            return url.join('/');
+        }
+        return url;
     }
 
-    getUrl(asArray = false) {
-        if (asArray) {
-            return this.#url;
-        } else {
-            return this.#url.join('/');
+    popUrl(asString = false, completeUrl = false, n = 1) {
+        let url = [];
+        if (completeUrl || n > this.#url.length) {
+            n = this.#url.length;
         }
-    }
-
-    getData(key = null) {
-        if (key == null || this.#data[key] == undefined) {
-            return this.#data;
-        } else if (key != null) {
-            return this.#data[key];
+        for (let i = 0; i < n; i++) {
+            url.push(this.#url[i]);
         }
+        if (n <= this.#url.length) {
+            this.#url = this.#url.slice(n);
+        }
+        if (asString) {
+            return url.join('/');
+        }
+        return url;
     }
 };
 

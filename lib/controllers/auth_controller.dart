@@ -16,6 +16,8 @@ class AuthController {
         );
         if (response.statusCode == 200) {
           switch (response.body) {
+            case 'SUCCESS':
+
             case 'SOMETHING WENT WRONG':
               return 'SOMETHING WENT WRONG AT OUR END';
             case 'USER DOES NOT EXISTS':
@@ -24,7 +26,7 @@ class AuthController {
               return 'WRONG PASSWORD';
             default:
               Map<String, dynamic> $response = jsonDecode(response.body);
-              user = User(
+              currentUser = User(
                   name: $response["name"]!,
                   username: $response["username"]!,
                   userid: $response["userid"]!);
@@ -61,7 +63,7 @@ class AuthController {
               return 'USER ALREADY EXISTS';
             default:
               Map<String, dynamic> $response = jsonDecode(response.body);
-              user = User(
+              currentUser = User(
                   name: $response["name"]!,
                   username: $response["username"]!,
                   userid: $response["userid"]!);

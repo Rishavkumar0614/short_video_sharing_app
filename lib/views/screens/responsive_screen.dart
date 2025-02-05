@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:short_video_sharing_app/commons.dart';
 import 'package:short_video_sharing_app/views/screens/display_size_not_supported_screen.dart';
 
+/*
+  Code Review:
+  Review #1: 26/01/2025.
+*/
+
 class ResponsiveScreen extends StatelessWidget {
   final Widget? tabScreen;
   final Widget? mobileScreen;

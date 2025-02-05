@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 
+/*
+  Code Review:
+  Review #1: 26/01/2025.
+*/
+
 class Button extends StatelessWidget {
   final String text;
+  final bool disableOnTap;
   final VoidCallback onTap;
   final Color backgroundColor;
   final double maxWidth, maxHeight;
@@ -12,6 +18,7 @@ class Button extends StatelessWidget {
     required this.onTap,
     this.maxWidth = 350,
     this.maxHeight = 85,
+    this.disableOnTap = false,
     this.backgroundColor = Colors.blueAccent,
   });
 

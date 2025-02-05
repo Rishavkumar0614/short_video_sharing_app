@@ -1,31 +1,57 @@
 const UserService = require("./user_service.js");
-const Response = require("../../models/response.js");
+const { Response } = require("../../models/response.js");
 
 class Server {
     serve(requestData, callback) {
-        switch (requestData.getUrl()) {
+        switch (requestData.peekUrl(true, true)) {
             case 'signup':
-                UserService.signup(requestData.getData()["name"], requestData.getData()["username"], requestData.getData()["password"], (response) => {
-                    callback(new Response(200, 'text/plain', response));
-                });
+                if (!(requestData.incomingData.checkFields(["name", "username", "password"]))) {
+                    callback(new Response(400, 'text/plain', 'Invalid Request'));
+                } else {
+                    UserService.signup(requestData.incomingData.getField("name"), requestData.incomingData.getField("username"), requestData.incomingData.getField("password"), (response) => {
+                        callback(new Response(200, 'text/plain', response));
+                    });
+                }
                 break;
 
             case 'login':
-                UserService.login(requestData.getData()["username"], requestData.getData()["password"], (response) => {
-                    callback(new Response(200, 'text/plain', response));
-                });
+                if (!(requestData.incomingData.checkFields(["username", "password"]))) {
+                    callback(new Response(400, 'text/plain', 'Invalid Request'));
+                } else {
+                    UserService.login(requestData.incomingData.getField("username"), requestData.incomingData.getField("password"), (response) => {
+                        callback(new Response(200, 'text/plain', response));
+                    });
+                }
+                break;
+
+            case 'secretLogin':
+                if (!(requestData.incomingData.checkFields(["auth_key"]))) {
+                    callback(new Response(400, 'text/plain', 'Invalid Request'));
+                } else {
+                    UserService.secret_login(requestData.incomingData.getField("auth_key"), (response) => {
+                        callback(new Response(200, 'text/plain', response));
+                    });
+                }
                 break;
 
             case 'search':
-                UserService.search(requestData.getData()["name"], (response) => {
-                    callback(new Response(200, 'text/plain', response));
-                });
+                if (!(requestData.incomingData.checkFields(["name"]))) {
+                    callback(new Response(400, 'text/plain', 'Invalid Request'));
+                } else {
+                    UserService.search(requestData.incomingData.getField("name"), (response) => {
+                        callback(new Response(200, 'text/plain', response));
+                    });
+                }
                 break;
 
             case 'follow':
-                UserService.follow(requestData.getData()["userid"], requestData.getData()["followerid"], (response) => {
-                    callback(new Response(200, 'text/plain', response));
-                });
+                if (!(requestData.incomingData.checkFields(["userid", "followerid"]))) {
+                    callback(new Response(400, 'text/plain', 'Invalid Request'));
+                } else {
+                    UserService.follow(requestData.incomingData.getField("userid"), requestData.incomingData.getField("followerid"), (response) => {
+                        callback(new Response(200, 'text/plain', response));
+                    });
+                }
                 break;
 
             default:

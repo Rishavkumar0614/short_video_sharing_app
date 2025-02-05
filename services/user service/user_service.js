@@ -1,10 +1,12 @@
-const bcrypt = require('bcrypt');
-const { hash_string } = require('../../commons.js');
+const User = require('../../models/user.js');
+const Encryption = require('../../encryption.js');
+const { Responses } = require("../../models/response.js");
+const Session = require("../../controllers/session_controller.js");
 const MySQLController = require("../../controllers/mysql_controller.js");
 const StorageController = require("../../controllers/storage_controller.js");
 
-class UserService {
-    static isUserExists(username, callback) {
+const UserService = new class {
+    #isUserExists(username, callback) {
         MySQLController.connect((status, result) => {
             if (status) {
                 let connectionObj = result;
@@ -24,7 +26,7 @@ class UserService {
         });
     }
 
-    static $isUserExists(userid, callback) {
+    #$isUserExists(userid, callback) {
         MySQLController.connect((status, result) => {
             if (status) {
                 let connectionObj = result;
@@ -44,11 +46,83 @@ class UserService {
         });
     }
 
-    static login(username, password, callback) {
+    #getNameByUserid(userid, callback) {
+        this.#$isUserExists(userid, (status) => {
+            if (status) {
+                MySQLController.connect((status, result) => {
+                    if (status) {
+                        let connectionObj = result;
+                        connectionObj.query(`SELECT name FROM short_video_sharing_app.users_basic_info WHERE userid = ${userid}`, (status, result) => {
+                            if (status) {
+                                callback(true, result[0]["name"]);
+                            } else {
+                                callback(false, new Responses().SOMETHING_WENT_WRONG);
+                            }
+                            connectionObj.end();
+                        });
+                    } else {
+                        callback(false, new Responses().SOMETHING_WENT_WRONG);
+                    }
+                });
+            } else {
+                callback(false, new Responses().USER_DOES_NOT_EXISTS);
+            }
+        });
+    }
+
+    #getNameByUsername(username, callback) {
+        this.#isUserExists(username, (status) => {
+            if (status) {
+                MySQLController.connect((status, result) => {
+                    if (status) {
+                        let connectionObj = result;
+                        connectionObj.query(`SELECT name FROM short_video_sharing_app.users_basic_info WHERE username = ${username}`, (status, result) => {
+                            if (status) {
+                                callback(true, result[0]["name"]);
+                            } else {
+                                callback(false, new Responses().SOMETHING_WENT_WRONG);
+                            }
+                            connectionObj.end();
+                        });
+                    } else {
+                        callback(false, new Responses().SOMETHING_WENT_WRONG);
+                    }
+                });
+            } else {
+                callback(false, new Responses().USER_DOES_NOT_EXISTS);
+            }
+        });
+    }
+
+    #getUsernameByUserid(userid, callback) {
+        this.#$isUserExists(userid, (status) => {
+            if (status) {
+                MySQLController.connect((status, result) => {
+                    if (status) {
+                        let connectionObj = result;
+                        connectionObj.query(`SELECT username FROM short_video_sharing_app.users_basic_info WHERE userid = ${userid}`, (status, result) => {
+                            if (status) {
+                                callback(true, result[0]["username"]);
+                            } else {
+                                callback(false, new Responses().SOMETHING_WENT_WRONG);
+                            }
+                            connectionObj.end();
+                        });
+                    } else {
+                        callback(false, new Responses().SOMETHING_WENT_WRONG);
+                    }
+                });
+            } else {
+                callback(false, new Responses().USER_DOES_NOT_EXISTS);
+            }
+        });
+    }
+
+    login(username, password, callback) {
         MySQLController.connect((status, result) => {
             if (status) {
                 const connectionObj = result;
-                UserService.isUserExists(username, (status) => {
+                this.#isUserExists(username, (status) => {
                     if (status) {
                         connectionObj.query(`
                                     SELECT * FROM short_video_sharing_app.users_credentials WHERE username = '${username}';
@@ -60,28 +134,28 @@ class UserService {
                                                 SELECT * FROM short_video_sharing_app.users_basic_info WHERE userid = '${userid}';
                                                 `, (err, result) => {
                                         if (!err) {
-                                            callback(JSON.stringify({ 'name': result[0]["name"], 'username': result[0]["username"], 'userid': userid }));
-                                            connectionObj.end();
+                                            Session.setSessionData('user', new User(userid, result[0]["name"], result[0]["username"]), true);
+                                            callback(new Responses().SUCCESS);
                                         } else {
-                                            callback('SOMETHING WENT WRONG');
-                                            connectionObj.end();
+                                            callback(new Responses().SOMETHING_WENT_WRONG);
                                         }
+                                        connectionObj.end();
                                     });
                                 } else {
                                     if (result.length != 1) {
-                                        callback('SOMETHING WENT WRONG');
+                                        callback(new Responses().SOMETHING_WENT_WRONG);
                                     } else {
-                                        callback('WRONG PASSWORD');
+                                        callback(new Responses().WRONG_PASSWORD);
                                     }
                                     connectionObj.end();
                                 }
                             } else {
-                                callback('SOMETHING WENT WRONG');
+                                callback(new Responses().SOMETHING_WENT_WRONG);
                                 connectionObj.end();
                             }
                         });
                     } else {
-                        callback('USER DOES NOT EXISTS');
+                        callback(new Responses().USER_DOES_NOT_EXISTS);
                         connectionObj.end();
                     }
                 });
@@ -89,19 +163,73 @@ class UserService {
         });
     }
 
-    static signup(name, username, password, callback) {
+    secret_login(auth_string, callback) {
+        Encryption.decrypt_string(auth_string, (status, data) => {
+            if (status) {
+                const auth = JSON.parse(data);
+                if (auth['username'] && auth['password']) {
+                    MySQLController.connect((status, result) => {
+                        if (status) {
+                            const connectionObj = result;
+                            this.#isUserExists(auth['username'], (status) => {
+                                if (status) {
+                                    connectionObj.query(`
+                                                SELECT * FROM short_video_sharing_app.users_credentials WHERE username = '${auth['username']}' AND password = '${auth['password']}';
+                                                `, (err, result) => {
+                                        if (!err) {
+                                            if (result.length == 1) {
+                                                let userid = result[0]["userid"];
+                                                connectionObj.query(`
+                                                            SELECT * FROM short_video_sharing_app.users_basic_info WHERE userid = '${userid}';
+                                                            `, (err, result) => {
+                                                    if (!err) {
+                                                        Session.setSessionData('user', new User(userid, result[0]["name"], result[0]["username"]), true);
+                                                        callback(new Responses().SUCCESS);
+                                                    } else {
+                                                        callback(new Responses().SOMETHING_WENT_WRONG);
+                                                    }
+                                                    connectionObj.end();
+                                                });
+                                            } else {
+                                                callback(new Responses().SOMETHING_WENT_WRONG);
+                                                connectionObj.end();
+                                            }
+                                        } else {
+                                            callback(new Responses().SOMETHING_WENT_WRONG);
+                                            connectionObj.end();
+                                        }
+                                    });
+                                } else {
+                                    callback(new Responses().USER_DOES_NOT_EXISTS);
+                                    connectionObj.end();
+                                }
+                            });
+                        } else {
+                            callback(new Responses().SOMETHING_WENT_WRONG);
+                        }
+                    });
+                } else {
+                    callback('INVALID DATA');
+                }
+            } else {
+                callback('INVALID DATA');
+            }
+        });
+    }
+
+    signup(name, username, password, callback) {
         MySQLController.connect((status, result) => {
             if (status) {
                 const connectionObj = result;
-                UserService.isUserExists(username, (status) => {
+                this.#isUserExists(username, (status) => {
                     if (!status) {
+                        password = Encryption.$encrypt_string(password);
                         connectionObj.query(`
                                     INSERT INTO short_video_sharing_app.users_credentials (username, password) VALUES (
                                         '${username}',
-                                        '${hash_string(password)}'
+                                        '${password}'
                                     );
                                     `, (err, result) => {
-                            console.log(err);
                             if (!err) {
                                 connectionObj.query(`
                                             SELECT userid FROM short_video_sharing_app.users_credentials WHERE username = '${username}';
@@ -118,17 +246,21 @@ class UserService {
                                                     `, (err, result) => {
                                             if (!err) {
                                                 StorageController.createStorage(userid);
-                                                callback(JSON.stringify({ 'name': name, 'username': username, 'userid': userid }));
+                                                Encryption.encrypt_string(JSON.stringify({ 'username': username, 'password': password }), (status, data) => {
+                                                    if (status) {
+                                                        Session.setSessionData('user', new User(userid, name, username), true);
+                                                        callback(data);
+                                                    } else {
+                                                        callback(new Responses().SOMETHING_WENT_WRONG);
+                                                    }
+                                                });
                                                 connectionObj.end();
                                             } else {
                                                 connectionObj.query(`
                                                     DELETE FROM short_video_sharing_app.users_credentials WHERE username = '${username}';
                                                     `, (err, result) => {
-                                                    if (!err) {
-                                                        callback('SOMETHING WENT WRONG');
-                                                    } else {
-                                                        callback('SOMETHING WENT WRONG');
-                                                    }
+                                                    if (!err) { } else { }
+                                                    callback(new Responses().SOMETHING_WENT_WRONG);
                                                     connectionObj.end();
                                                 });
                                             }
@@ -138,22 +270,19 @@ class UserService {
                                         connectionObj.query(`
                                             DELETE FROM short_video_sharing_app.users_credentials WHERE username = '${username}';
                                             `, (err, result) => {
-                                            if (!err) {
-                                                callback('SOMETHING WENT WRONG');
-                                            } else {
-                                                callback('SOMETHING WENT WRONG');
-                                            }
+                                            if (!err) { } else { }
+                                            callback(new Responses().SOMETHING_WENT_WRONG);
                                             connectionObj.end();
                                         });
                                     }
                                 });
                             } else {
-                                callback('SOMETHING WENT WRONG');
+                                callback(new Responses().SOMETHING_WENT_WRONG);
                                 connectionObj.end();
                             }
                         });
                     } else {
-                        callback('USER ALREADY EXISTS');
+                        callback(new Responses().USER_ALREADY_EXISTS);
                         connectionObj.end();
                     }
                 });
@@ -161,7 +290,7 @@ class UserService {
         });
     }
 
-    static search(name, callback) {
+    search(name, callback) {
         MySQLController.connect((status, result) => {
             if (status) {
                 const connectionObj = result;
@@ -175,49 +304,41 @@ class UserService {
                             callback(JSON.stringify(searchedUsers));
                             connectionObj.end();
                         } else {
-                            callback('SOMETHING WENT WRONG');
+                            callback(new Responses().SOMETHING_WENT_WRONG);
                             connectionObj.end();
                         }
                     }
                 );
             } else {
-                callback('SOMETHING WENT WRONG');
+                callback(new Responses().SOMETHING_WENT_WRONG);
             }
         });
     }
 
-    static follow(userid, followerid, callback) {
+    follow(followerid, callback) {
         MySQLController.connect((status, result) => {
             if (status) {
                 const connectionObj = result;
-                UserService.$isUserExists(userid, (status) => {
+                this.#$isUserExists(followerid, (status) => {
                     if (status) {
-                        UserService.$isUserExists(followerid, (status) => {
-                            if (status) {
-                                connectionObj.query(`INSERT INTO short_video_sharing_app.users_followers (userid, follower_user_id) VALUES ('${userid}','${followerid}');`, (err, result) => {
-                                    if (!err) {
-                                        callback('SUCCESS');
-                                        connectionObj.end();
-                                    } else {
-                                        callback('SOMETHING WENT WRONG');
-                                        connectionObj.end();
-                                    }
-                                });
+                        connectionObj.query(`INSERT INTO short_video_sharing_app.users_followers (userid, follower_user_id) VALUES ('${Session.getSessionData('user').getUserId()}','${followerid}');`, (err, result) => {
+                            if (!err) {
+                                callback(new Responses().SUCCESS);
                             } else {
-                                callback('FOLLOWER DOES NOT EXISTS');
-                                connectionObj.end();
+                                callback(new Responses().SOMETHING_WENT_WRONG);
                             }
+                            connectionObj.end();
                         });
                     } else {
-                        callback('USER DOES NOT EXISTS');
+                        callback('FOLLOWER DOES NOT EXISTS');
                         connectionObj.end();
                     }
                 });
             } else {
-                callback('SOMETHING WENT WRONG');
+                callback(new Responses().SOMETHING_WENT_WRONG);
             }
         });
     }
-};
+}();
 
 module.exports = UserService;

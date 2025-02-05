@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:short_video_sharing_app/utils/session_manager.dart';
 import 'package:short_video_sharing_app/views/screens/responsive_screen.dart';
 import 'package:short_video_sharing_app/views/screens/mobile/onboarding_screen.dart';
-import 'package:short_video_sharing_app/views/screens/tablet/add_video_screen.dart';
+import 'package:short_video_sharing_app/views/screens/tablet/onboarding_screen.dart';
 import 'package:short_video_sharing_app/views/screens/desktop/onboarding_screen.dart';
 
-void main() {
+SessionManager sessionManager = SessionManager();
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await sessionManager.initPref();
   runApp(const App());
 }
 
@@ -22,7 +27,7 @@ class App extends StatelessWidget {
         fontFamily: GoogleFonts.notoSans().fontFamily,
       ),
       home: ResponsiveScreen(
-        tabScreen: TabletAddVideoScreen(),
+        tabScreen: TabletOnBoardingScreen(),
         mobileScreen: MobileOnBoardingScreen(),
         desktopScreen: DesktopOnBoardingScreen(),
       ),

@@ -1,6 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+/*
+  Code Review:
+  Review #1: 26/01/2025.
+*/
+
 class ProfileController {
   Future<String> followUser(int userid, int followerid) async {
     try {
@@ -27,7 +32,7 @@ class ProfileController {
           return 'INVALID RESPONSE';
         }
       } else {
-        return 'PLEASE FILL ALL THE FIELDS';
+        return 'PLEASE FILL THE FIELDS WITH VALID DATA';
       }
     } catch (e) {
       return 'SOMETHING WENT WRONG: $e';

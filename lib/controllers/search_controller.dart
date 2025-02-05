@@ -2,6 +2,11 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:short_video_sharing_app/models/user.dart';
 
+/*
+  Code Review:
+  Review #1: 26/01/2025.
+*/
+
 class $SearchController {
   Future<List<User>> searchUser(String name) async {
     try {

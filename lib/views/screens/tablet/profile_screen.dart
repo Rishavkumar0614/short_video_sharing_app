@@ -4,7 +4,7 @@ import 'package:short_video_sharing_app/models/user.dart';
 import 'package:short_video_sharing_app/utils/snack_bar.dart';
 import 'package:short_video_sharing_app/views/widgets/button.dart';
 
-User $user = user;
+User $user = currentUser;
 
 class TabletProfileScreen extends StatefulWidget {
   const TabletProfileScreen({super.key, $user});
@@ -92,7 +92,7 @@ class _TabletProfileScreenState extends State<TabletProfileScreen> {
                             child: Column(
                               children: [
                                 Text(
-                                  '${user.getFollowing().length}',
+                                  '${$user.getFollowing().length}',
                                   style: const TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
@@ -114,7 +114,7 @@ class _TabletProfileScreenState extends State<TabletProfileScreen> {
                     const SizedBox(
                       height: 15,
                     ),
-                    if ($user.getUserId() != user.getUserId())
+                    if ($user.getUserId() != currentUser.getUserId())
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -123,14 +123,15 @@ class _TabletProfileScreenState extends State<TabletProfileScreen> {
                               onTap: () async {
                                 String $response =
                                     await profileController.followUser(
-                                        $user.getUserId(), user.getUserId());
+                                        $user.getUserId(),
+                                        currentUser.getUserId());
                                 showSnackBar($response, 4);
                               }),
                           SizedBox(width: 10),
                           Button(text: 'Message', onTap: () async {}),
                         ],
                       ),
-                    if ($user.getUserId() == user.getUserId())
+                    if ($user.getUserId() == currentUser.getUserId())
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [

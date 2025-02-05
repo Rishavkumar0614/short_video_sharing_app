@@ -2,11 +2,15 @@ import 'dart:convert';
 import 'dart:html' as html;
 import 'package:http/http.dart' as http;
 
-class VideoController {
+/*
+  Code Review:
+  Review #1: 26/01/2025.
+*/
+
+class ContentController {
   Future<String> uploadVideo(dynamic videoFile, String caption) async {
     try {
       if (videoFile != null && caption.isNotEmpty) {
-        print('hi');
         final reader = html.FileReader();
         reader.readAsArrayBuffer(videoFile);
         await reader.onLoadEnd.first;
@@ -16,11 +20,39 @@ class VideoController {
             'video', reader.result as List<int>,
             filename: videoFile.name));
         request.fields['caption'] = caption;
-        print('hi hello');
         final response = await request.send();
         if (response.statusCode == 200) {
           final responseString = await response.stream.bytesToString();
           switch (responseString) {
+            case 'SOMETHING WENT WRONG':
+              return 'SOMETHING WENT WRONG AT OUR END';
+            case 'CONTENT UPLOADED':
+              return 'SUCCESS';
+            default:
+              return 'SOMETHING WENT WRONG';
+          }
+        } else {
+          return 'INVALID RESPONSE';
+        }
+      } else {
+        return 'PLEASE FILL THE FIELDS WITH VALID DATA';
+      }
+    } catch (e) {
+      return 'SOMETHING WENT WRONG: $e';
+    }
+  }
+
+  Future<String> fetchContent(int contentid) async {
+    try {
+      if (contentid > 0) {
+        final response = await http.post(
+          Uri.parse('http://localhost:4000/services/content/fetch'),
+          body: jsonEncode({
+            'contentid': contentid,
+          }),
+        );
+        if (response.statusCode == 200) {
+          switch (response.body) {
             case 'SOMETHING WENT WRONG':
               return 'SOMETHING WENT WRONG AT OUR END';
             case 'USER DOES NOT EXISTS':
@@ -34,10 +66,9 @@ class VideoController {
           return 'INVALID RESPONSE';
         }
       } else {
-        return 'PLEASE FILL ALL THE FIELDS';
+        return 'INVALID CONTENT ID';
       }
     } catch (e) {
-      print(e);
       return 'SOMETHING WENT WRONG: $e';
     }
   }

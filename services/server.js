@@ -1,20 +1,22 @@
 const Response = require("../models/response.js");
 
 class Server {
-    #requestTable;
-
-    constructor() {
-        this.#requestTable =
+    #route(key) {
+        let Server = undefined;
+        const routeMap =
         {
             'user': './user service/server.js',
             'content': './content service/server.js',
         };
+        if (routeMap[key]) {
+            Server = require(routeMap[key]);
+        }
+        return Server;
     }
 
     serve(requestData, callback) {
-        let Server;
-        if (this.#requestTable[requestData.getUrl(true)[0]] != undefined) {
-            Server = require(this.#requestTable[requestData.shiftUrl()]);
+        const Server = this.#route(requestData.popUrl(true));
+        if (Server) {
             new Server().serve(requestData, callback);
         } else {
             callback(new Response(404, 'text/html', 'Service Not Found'));

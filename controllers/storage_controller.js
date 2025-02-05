@@ -1,7 +1,59 @@
 const fs = require('fs');
 
-class StorageController {
-    static getStoragePath(userid) {
+const StorageController = new class {
+    #Bucket = class {
+        #userid;
+        #bucketid;
+
+        constructor(userid, bucketid) {
+            this.#userid = userid;
+            this.#bucketid = bucketid;
+        }
+
+        #getBucketPath() {
+            let userid = `${this.#userid}`;
+            let bucketid = `${this.#bucketid}`;
+            let path = 'UserData/';
+            const pathSegments = userid.split('');
+            for (const segment of pathSegments) {
+                path += (segment + '/');
+            }
+            path += `B${bucketid}/`;
+            return path;
+        }
+
+        createDirectory(name, path = '', recursive = true) {
+            try {
+                path = (this.#getBucketPath() + path + `${name}/`);
+                fs.mkdirSync(path, { recursive: recursive });
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        insertFile(name, filepath, path = '', recursive = true) {
+            try {
+                path = (this.#getBucketPath() + (path != '') ? (path + '/') : path);
+                fs.mkdirSync(path, { recursive: recursive });
+                fs.copyFileSync(filepath, (path + name));
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        doesFileExists(name, path = '') {
+            try {
+                path = (this.#getBucketPath() + (path != '') ? (path + '/') : path);
+                return fs.existsSync(path + name);
+            } catch (e) {
+                return false;
+            }
+        }
+    };
+
+    #getStoragePath(userid) {
         userid = `${userid}`;
         let path = 'UserData/';
         const pathSegments = userid.split('');
@@ -11,29 +63,12 @@ class StorageController {
         return path;
     }
 
-    static createStorage(userid) {
+    #isUserAuthorized(userid) {
         try {
-            let path = StorageController.getStoragePath(userid);
-            fs.mkdirSync(path, { recursive: true });
-            fs.writeFileSync(path + 'basic_info.json', JSON.stringify({ 'userid': userid, 'buckets': 0 }));
-            return true;
-        } catch (e) {
-            return false;
-        }
-    }
-
-    static doesStorageExists(userid) {
-        try {
-            let path = StorageController.getStoragePath(userid) + 'basic_info.json';
-            return fs.isExistsSync(path);
-        } catch (e) {
-            return false;
-        }
-    }
-
-    static isUserAuthorized(userid) {
-        try {
-            let path = StorageController.getStoragePath(userid) + 'basic_info.json';
+            if (!this.#doesStorageExists(userid)) {
+                return false;
+            }
+            let path = this.#getStoragePath(userid) + 'credentials.json';
             let basic_info = JSON.parse(fs.readFileSync(path));
             return (basic_info['userid'] == userid);
         } catch (e) {
@@ -41,46 +76,69 @@ class StorageController {
         }
     }
 
-    static createBucket(userid) {
+    #doesStorageExists(userid) {
         try {
-            if (StorageController.isUserAuthorized(userid)) {
-                let path = StorageController.getStoragePath(userid) + 'basic_info.json';
-                let basic_info = JSON.parse(fs.readFileSync(path));
-                basic_info['buckets']++;
-                fs.mkdirSync(path + `B${basic_info['buckets']}`, { recursive: true });
-                fs.writeFileSync(path, JSON.stringify(basic_info));
-                return basic_info['buckets'];
-            }
-            return -1;
-        } catch (e) {
-            return 0;
-        }
-    }
-
-    static isBucketExists(userid, bucket_id) {
-        try {
-            if (!StorageController.isUserAuthorized(userid)) {
-                return false;
-            }
-            let path = StorageController.getStoragePath(userid) + `B${bucket_id}/`;
+            let path = this.#getStoragePath(userid) + 'credentials.json';
             return fs.existsSync(path);
         } catch (e) {
             return false;
         }
     }
 
-    static createDirectoryInBucket(userid, bucket_id) {
+    #isBucketExists(userid, bucket_id) {
         try {
-            if (!StorageController.isBucketExists(userid, bucket_id)) {
+            if (!this.#isUserAuthorized(userid)) {
                 return false;
             }
-            let path = StorageController.getStoragePath(userid) + `B${bucket_id}/`;
+            let path = this.#getStoragePath(userid) + `B${bucket_id}/`;
+            return fs.existsSync(path);
+        } catch (e) {
+            return false;
+        }
+    }
+
+    #createBucket(userid) {
+        try {
+            if (this.#isUserAuthorized(userid)) {
+                let path = this.#getStoragePath(userid);
+                let credentials = JSON.parse(fs.readFileSync(path + 'credentials.json'));
+                credentials['buckets']++;
+                fs.mkdirSync(path + `B${credentials['buckets']}`, { recursive: true });
+                fs.writeFileSync(path + 'credentials.json', JSON.stringify(basic_info));
+                return new this.#Bucket(userid, credentials['buckets']);
+            }
+            return null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    createStorage(userid) {
+        try {
+            if (this.#doesStorageExists(userid)) {
+                return false;
+            }
+            let path = this.#getStoragePath(userid);
             fs.mkdirSync(path, { recursive: true });
+            fs.writeFileSync(path + 'credentials.json', JSON.stringify({ 'userid': userid, 'buckets': 0 }));
             return true;
         } catch (e) {
             return false;
         }
     }
-};
+
+    getBucket(userid, bucket_id) {
+        try {
+            if (this.#isUserAuthorized(userid) && this.#isBucketExists(userid, bucket_id)) {
+                return new this.#Bucket(userid, bucket_id);
+            } else if (this.#isUserAuthorized(userid)) {
+                return this.#createBucket(userid);
+            }
+            return null;
+        } catch (e) {
+            return null;
+        }
+    }
+}();
 
 module.exports = StorageController;
